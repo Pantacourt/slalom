@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visualisation des Figures de Slalom</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+            background-color: #121212;
+            color: #e0e0e0;
+        }
+        #visualisation-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #visualisation {
+            width: 100%;
+            height: 100%;
+        }
+        .texte-niveau {
+            font-weight: bold;
+            font-size: 16px;
+            text-anchor: middle;
+            dominant-baseline: central;
+            fill: #e0e0e0;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        .texte-figure {
+            font-size: 12px;
+            text-anchor: middle;
+            dominant-baseline: central;
+            fill: #e0e0e0;
+            cursor: pointer;
+            transition: font-size 0.3s ease;
+        }
+        .fond-figure {
+            fill: rgba(255, 255, 255, 0.1);
+            rx: 5;
+            ry: 5;
+            transition: all 0.3s ease;
+        }
+        .fond-figure.maitrisee { fill: rgba(46, 204, 113, 0.5); }
+        .fond-figure.en-cours { fill: rgba(241, 196, 15, 0.5); }
+        .menu-burger {
+            position: fixed;
+            z-index: 1000;
+            background-color: #3498db;
+            color: #e0e0e0;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .menu-burger:hover {
+            background-color: #2980b9;
+        }
+        #filtres-burger { top: 20px; left: 20px; }
+        #progression-burger { top: 20px; right: 20px; }
+        .menu-content {
+            position: fixed;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+            z-index: 999;
+        }
+        #filtres { top: 70px; left: 20px; max-width: 300px; }
+        #progression-container { top: 70px; right: 20px; max-width: 300px; }
+        .popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #1e1e1e;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+            z-index: 1000;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+        }
+        .bouton-fermer {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s ease;
+        }
+        .bouton-fermer:hover {
+            color: #e0e0e0;
+        }
+        .progress-bar {
+            height: 10px;
+            background-color: #2c2c2c;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background-color: #3498db;
+            transition: width 0.3s ease;
+        }
+        .popup-button {
+            background-color: #3498db;
+            color: #e0e0e0;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-right: 10px;
+        }
+        .popup-button:hover {
+            background-color: #2980b9;
+        }
+        .popup-button.maitrisee { background-color: #2ecc71; }
+        .popup-button.maitrisee:hover { background-color: #27ae60; }
+        .popup-button.en-cours { background-color: #f1c40f; }
+        .popup-button.en-cours:hover { background-color: #f39c12; }
+        #search-container {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+        }
+        #search-input {
+            padding: 10px;
+            border-radius: 20px;
+            border: 1px solid #bdc3c7;
+            width: 200px;
+            font-size: 14px;
+            background-color: #2c2c2c;
+            color: #e0e0e0;
+        }
+        #search-button {
+            background-color: #3498db;
+            color: #e0e0e0;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-left: 10px;
+        }
+        #search-button:hover {
+            background-color: #2980b9;
+        }
+        #zoom-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            gap: 10px;
+        }
+        .zoom-button {
+            background-color: #3498db;
+            color: #e0e0e0;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .zoom-button:hover {
+            background-color: #2980b9;
+        }
+
+        #favoris-container {
+            position: fixed;
+            top: 70px;
+            left: 20px;
+            z-index: 1000;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            max-height: 80vh;
+            overflow-y: auto;
+            display: none;
+        }
+        .favoris-item {
+            cursor: pointer;
+            padding: 5px;
+            transition: background-color 0.3s ease;
+        }
+        .favoris-item:hover {
+            background-color: #2c2c2c;
+        }
+        #suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background-color: #2c2c2c;
+            border: 1px solid #bdc3c7;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+        }
+        .suggestion-item {
+            padding: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .suggestion-item:hover {
+            background-color: #3c3c3c;
+        }
+    </style>
+</head>
+<body>
+    <div id="visualisation-container">
+        <div id="visualisation"></div>
+    </div>
+    <div id="filtres-burger" class="menu-burger">Filtres</div>
+    <div id="progression-burger" class="menu-burger">Progression</div>
+    <div id="filtres" class="menu-content"></div>
+    <div id="progression-container" class="menu-content">
+        <div>Progression globale : <span id="progression-globale-pourcentage"></span></div>
+        <div class="progress-bar"><div id="progression-globale-barre" class="progress-bar-fill"></div></div>
+        <div id="progression-details"></div>
+    </div>
+    <div id="search-container">
+        <input type="text" id="search-input" placeholder="Rechercher une figure...">
+        <button id="search-button">Rechercher</button>
+        <div id="suggestions"></div>
+    </div>
+    <div id="zoom-controls">
+        <button class="zoom-button" id="zoom-in">+</button>
+        <button class="zoom-button" id="zoom-out">-</button>
+        <button class="zoom-button" id="zoom-reset">Reset</button>
+    </div>
+    <div id="niveau-navigation">
+        <select id="niveau-select"></select>
+    </div>
+    <div id="favoris-container">
+        <h3>Favoris</h3>
+        <div id="favoris-list"></div>
+    </div>
+    <div id="popup" class="popup">
+        <span class="bouton-fermer" onclick="fermerPopup()">×</span>
+        <h2 id="popup-titre"></h2>
+        <p id="popup-description"></p>
+        <p id="popup-tags"></p>
+        <div id="video-container"></div>
+        <button class="popup-button maitrisee" onclick="changerStatut('maitrisee')">Maîtrisé</button>
+        <button class="popup-button en-cours" onclick="changerStatut('en-cours')">En cours</button>
+        <button class="popup-button" onclick="changerStatut('a-apprendre')">À apprendre</button>
+        <button class="popup-button" id="toggle-favoris">Ajouter aux favoris</button>
+    </div>
+    <script>
+    let donnees_slalom = [
+        {
+            niveau: 1,
+            couleur: "#3498db",
+            figures: [
+                { nom: "Godille Avant", description: "Cette figure consiste à passer les deux pieds successivement à droite puis à gauche des plots. Les deux pieds sont serrés le plus possible et ne doivent pas se décaler ni se dépasser. La toute première figure à essayer en slalom. Bien qu'elle ne soit pas correctement réalisée par le débutant, c'est une figure motivante pour continuer. En effet pour la réaliser correctement le centre de gravité doit rester au dessus de la ligne de plots et les jambes passer de part et d'autre. Les jambes sont semi-fléchies et le poids du corps est placé dans les roues des talons. Pensez à bien rester vers l'avant et envoyer vos genoux à gauche et à droite.", tags: ["others"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/aqulzVF5_SQ" },
+                { nom: "Croisé Avant", description: "Cette figure consiste à croiser les pieds autour d'un plot et à les décroiser au plot suivant ainsi de suite avec toujours le même pied devant. Pensez à garder le poids du corps dans les talons et à être bien fléchi. le buste reste droit, le regard oscille entre le premier plot et les 3 suivants. Un principe souvent utile est de penser à bien croiser les pieds à la moitié de la distance entre les deux plots et à décroiser également au milieu de la distance. En bref, si vous croisez trop tard souvent vous risquez de toucher le plot à franchir.", tags: ["others"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/3iwAJknYcbE" },
+                { nom: "Croisé Avant Alterné", description: "Figure qui consiste à realiser un croisé avant normal sur 2 plots, puis un croisé avant opposé (switch) sur les deux plots suivants). Apprenez dans un premier temps, le croisé avant, puis son switch et ensuite essayez d'alterner les deux.", tags: ["others"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/zlJxeFkMVWE" },
+                { nom: "Serpent Avant", description: "Cette figure consiste à passer successivement à droite et à gauche des plots, les deux pieds l'un derrière l'autre en marche avant. Le pied de derrière suit le même tracé que le pied de devant. Le poids du corps doit bien rester dans les orteils et les talons sont légèrement décollés.Vous devez réaliser des mouvements de gauche à droite avec le bassin en partant des talons, cela vous permettra de réaliser le mouvement de serpent au sol. Plus vous essayerez de réaliser des virages larges en forme de boucles et plus vous réussirez rapidement cette figure.", tags: ["others"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/dXl4NI26i6o" },
+                { nom: "Croisé Arrière", description: "Cette figure consiste à croiser et décroiser les pieds successivement autour des plots en marche arrière. la première chose à travailler est la position du corps, en effet il faut bien regarder du côté du pied qui passe en premier les plots. Le poids du corps doit être principalement dans les orteils. Si vous avez tendance à sortir de la ligne c'est que la rotation des épaules entraine les hanches et donc vous fait sortir. Pensez à bien dissocier les épaules des hanches et cette figure sera plus facile.", tags: ["others"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/dXl4NI26i6o" }, 
+            ]
+        },
+        {
+            niveau: 2,
+            couleur: "#e74c3c",
+            figures: [
+{ nom: "Mexicaine", description: "Cette figure consiste à passer le premier plot en position d'aigle croisé, puis le second en croisé arrière et le 3eme, après une rotation du coté du pied qui passe en dernier le plot, en position de « chapo » (les deux pointes de pieds qui se regardent). Cette figure permet d'aborder ensuite l'italienne avec plus de stabilité. Nous vous conseillons d'apprendre le crazy, puis l'eddy mabrouk et enfin la mexicaine. Le poids du corps est souvent sur les roues avant dans cette figure.", tags: ["others"], statut: 'a-apprendre', videoUrl : "https://www.youtube.com/embed/mu7QQfh5a94" },
+                { nom: "Chapi Chapo", description: "Cette figure consiste à slalomer de profil par rapport à la ligne de plot: en passant les deux pieds au dessous du premier plot (en chapi) le pied de devant en marche avant celui de derrière en marche arrière, puis le second plot par le dessus (en chapo) le pied de devant en marche arrière et celui de derrière en marche avant. Le chapi chapo se décompose donc par un chapi (position d'aigle) suivi d'un chapo (position d'aigle inversé). N'écartez pas trop les pieds, conservez toujours le même espace et déplacez vous plus en bougeant les hanches de droite à gauche.", tags: ["others"], statut: 'a-apprendre', videoUrl : "https://www.youtube.com/embed/YuS5HC1PKVA" },
+                { nom: "Nelson Avant Serpent", description: "Figure qui consiste à passer à coté du premier plot le pied de devant en marche avant et celui de derrière en marche arrière (position de chapi) puis le plot suivant les deux pieds qui se suivent en marche avant de l'autre côté du plot.. Cette figure est une variante du nelson avant, il est interessant de la travailler à la même période.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/EDiaciG0gJM" },
+                 { nom: "Double Croisé Avant", description: "Figure qui consiste à croiser les pieds autour de chaque plot en marche avant en changeant le pied directeur à chaque plot. Travaillez dans un premier temps le croisé avant, puis son switch. Ensuite commencez à réaliser cette figure sur un espacement d’au moins 1m60, puis 1m20 puis 80cm (le plus dur)", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/uq-4r2zTG2M" },
+                { nom: "Eddy Mabrouk", description: "Cette figure consiste à passer le premier plot en croisé avant en diagonale, puis le second plot est évité en « aigle » par le dessous, puis le 3eme plots est franchi en croisé arrière en diagonale et le 4eme est évité en « aigle inversé ». C’est un mélange de crazy et de chapi chapo. Nous vous conseillons de travailler dans un premier temps le crazy et le chapi chapo séparément puis de travailler cette figure qui consiste à les mélanger en alternant un mouvement de crazy, un mouvement de chapi chapo, l’autre mouvement de crazy, le second mouvement de chapi chapo et ainsi de suite…", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/bp0hMHeYwpY" },
+                { nom: "Balade Arrière", description: "Cette figure consiste à réaliser en marche arrière un mouvement de croisé en diagonale du côté du pied qui franchi les plots en premier puis de changer de pied et de croiser de l’autre côté.Après avoir travaillé la balade avant, vous pouvez aborder la balade arrière. Il est plus facile de regarder que d’un seul côté des plots. Ici le poids du corps est principalement dans l’avant des pieds (orteils) et les bras servent bien de balancier pour envoyer les pieds vers les diagonales. Pensez à bien aller sur les côtés de façon symétrique.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/v3477USvd3M" },
+                { nom: "Double Balade Avant", description: "Figure qui consiste à croiser le premier plot en marche avant vers une diagonale, puis entre les deux plots disposer les deux pieds l’un derrière l’autre dans la direction opposée pour recroiser le deuxieme plot dans la même position que le premier et ainsi de suite. En réalité on effectue une balade avant doublée (d’où son nom). Il faut donc aborder en premier la balade avant puis la double balade avant.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/gi2kjmSAmJk" },
+                { nom: "Nelson Avant", description: "Figure qui consiste à passer le premier plot les jambes écartées en marche avant et le plot suivant avec le pied de devant en marche avant et l’autre en marche arrière. La figure consiste à alterner ces deux mouvements en boucle. C’est une figure difficile pour le débutant car elle demande de la souplesse dans les adducteurs. Il faut également réussir le transfert du poids du corps d’un pied sur l’autre c’est donc un très bon exercice.A noter que le nelson arrière est plus rapide à réussir que le nelson avant. Cette figure deviendra rapidemnt une figure de base des patineurs de niveau intermediaire.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/C5INZs2duYo" },
+                { nom: "Godille arrière", description: "Figure qui consiste à passer successivement à droite et à gauche des plots les deux pieds serrés en marche arrière C’est une figure facile à comprendre et à faire rapidement, cependant pour qu’elle reste bien symétrique au niveau des pieds, ce n’est pas toujours facile. Nous vous conseillons de bien regarder d’un seul côté, le même que celui de votre croisé arrière puis de bien serrer les pieds et d’essayer de ne pas les décaler pour garder le côté esthétique de la figure. Normalement une fois que vous maîtrisez bien le croisé arrière et le serpent arrière, vous pouvez vous attaquer à la godille arrière. Rappelez-vous que pour ce genre de figure en marche arrière, le poids du corps est reparti dans les orteils sinon vous ne pouvez pas diriger les pieds.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/dKGjhNaljfU" },
+                { nom: "Nelson Arrière Serpent", description: "Cette figure consiste à éviter le premier plot en marche arrière avec les deux pieds du même côté puis à passer le second plot avec le premier pied en marche avant et le second en marche arrière face au plot (mouvement de chapi). C’est une variante du nelson arrière, il est donc interessant de la travailler à la même période.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/XdCMcj-0qfs" },
+                { nom: "Nelson Arrière", description: "Cette figure consiste à alterner en marche arrière une phase de croisé autour d’un plot et une phase d’aigle croisé au plot suivant et ainsi de suite. Le pied en marche arrière doit toujours rester en marche arrière, l’autre alterne la position avant et arrière en se levant légèrement. Cette figure est l’étape intermédiaire entre le croisé arrière et le pied arrière. Le pied qui reste en marche arrière doit conserver la plupart du poids du corps, l’autre est régulèrement allégé pour pouvoir se retourner. Le haut du corps est quasiment de profil.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/krOohwgwkc4" },
+                { nom: "Crazy", description: "Cette figure consiste à croiser les pieds autour des plots de côté avec toujours le même pied qui passe en premier les plots. A chaque plot on croise en diagonale une fois en avant et une fois en arrière. Entre le premier et le second plot les pointes de pieds s’éloignent en avançant et entre le deuxième et troisième plot les talons s’éloigent en reculant. La principale difficulté se trouve au passage du 2e au 3e plot, vous n’arriverez pas à repartir. Pour celà il faut impérativement vous entraîner à éloigner les talons et non les rapprocher lorsque vous reculez après le 2e plot. Ensuite vous avancer le pied directeur et vous poussez avec le pied de derrière. Tout le monde peut y arriver, il n’y a pas de réelle difficulté, alors essayez vraiment !!", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/sTqU7yz7JTs" },
+                { nom: "Italienne Avant", description: "Figure qui consiste à croiser les pieds en marche avant autour du premier plot, puis fait le tour du deuxieme plot le pied de devant en marche avant et celui de derrière en marche arrière, puis terminer par une rotation de 180° pour recommencer au 3e plot en croisé avant. Cette figure ne comporte pas de réelle difficulté technique.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/Rve2dCR9BjM" },
+                { nom: "Balade Avant", description: "Cette figure consiste à croiser les pieds en marche avant autour du premier plot vers la diagonale avant « du pied qui passe les plots en premier ». Ensuite vous inversez les pieds au deuxieme plot et vous allez vers la diagonale avant opposée. On change donc de pied à chaque plot et on envoie toujours les pieds en diagonale. Vous devez placer le poids du corps plus vers l’avant des patins. Pensez à tourner les hanches en suivant le mouvement mais en conservant les épaules de face. Vos bras vont servir de balancier.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/RaTTLOxSsF8" },
+                { nom: "Croisé Arrière Alterné", description: "Figure qui consiste à réaliser un croisé arrière sur les 2 premiers plots, puis un croisé arrière opposé (ou switch) sur les 2 plot suivants et ainsi de suite. Reportez vous au croisé arrière pour débuter. Ensuite travailler le croisé arrière switch (c’est à dire avec l’autre pied directeur). Une petite information: il est plus judicieux de regarder toujours du même coté afin de garder la stabilité lors de la figure..", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/J40RF2RZBZc" },
+                { nom: "1 Pied Avant", description: "Cette figure consiste à passer à droite puis à gauche des plots successivement sur un seul pied en marche avant. La difficulté principale de cette figure est de tenir en équilibre. Il est donc judicieux de travailler l’équilibre sur un pied en dehors des plots dans un premier temps ensuite de tenter 4, puis 6 puis 8 plots jusqu’à arriver à 20 plots. Essayez de slalomer sur un espacement de 80cm assez rapidement pour vous habituer à cet espacement.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/O3k6dCNJE3I" },
+                { nom: "Serpent arrière", description: "Le serpent arrière (ou snake arrière) consiste à slalomer à droite puis à gauche des plots avec les pieds qui se suivent sur le même tracé. Poids du corps dans les orteils pour déplacer plus facilement les talons. Jambes bien fléchies, il faut chercher à bien arrondir le mouvement des pieds en s’aidant du mouvement des hanches.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/tPTmYiV2hnE" },
+
+
+
+            ]
+        },
+        {
+            niveau: 3,
+            couleur: "#2ecc71",
+            figures: [
+                { nom: "Déhanché", description: "Figure qui consiste à passer le premier plot en marche avant les jambes croisée et le plot suivant en marche arrière, les jambes également croisées avec le même pied directeur. Je conseille de travailler le croisé avant, le croisé arrière, le crazy et le nelson arrière avant d’aborder cette figure.", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/tmyKmJTqrkY" },
+                { nom: "Aigle Avant Croisé", description: "Figure qui consiste à franchir le premier plot avec un pied de chaque coté, le pied de devant en marche avant, celui de derriere en marche arrière, au plot suivant le pied de derrière passe devant en marche avant, celui qui était devant se place derrière en marche arrière. Travailler dans un premier temps l’aigle croisé et les nelson avant, cette figure ne devrait ensuite pas trop poser de problème. Elle est appelée aigle avant croisé car le déplacement se fait vers l’avant (on aurait aussi pu choisir aigle frontal croisé).", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/HddQqCYpmCk"},
+                { nom: "Italienne", description: "Figure qui consiste à croiser les pieds en marche arrière, et après une rotation passer le second plot en « chapo » ou position d’aigle inversé. Cette figure n’est pas très compliquée mais elle donne un peu le tourni au début, il est donc préférable de réaliser la mexicaine avant pour s’habituer aux déséquilibres. Le poids du corps est principalement dans les roues avant des patins afin de faciliter les rotations.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/HddQqCYpmCk" },
+                { nom: "Méga", description: "Cette figure consiste à réaliser un nelson avant, puis un nelson arrière sur quatre plot et à le répéter ensuite en boucle. Commencez par travailler le nelson arrière qui est plus facile, puis le nelson avant et enchainez les deux.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/U7plqB_ZqO8" },
+                { nom: "Soleil", description: "Cette figure consiste à enchainer un nelson avant et un nelson arrière switch (opposé) sur quatre plots. Commencez par travailler le nelson arrière, puis le nelson avant ensuite combinez les deux.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/dLnF6hxfBx8"},
+                { nom: "Pas de danse tournant (1 plot)", description: "Cette figure consiste à tourner autour d’un plot avec un pied sur la pointe ou le talon ou alterné et l’autre en marche arrière décrivant un cercle. Commencez par faire un petit mouvement d’aigle croisé pour passer le plot, puis pivoter sur la pointe du pied interieur et effectuez un demi-tour pour recommencer. Ainsi de suite jusqu’à réaliser le mouvement sans vous arrêter en boucle: attention à la tête qui tourne 🙂", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/hqEJcZcMMxc" },
+                { nom: "Crazy Spin", description: "Cette figure consiste à enchainer une balade avant et une balade arrière sans s’arrêter sur 4 plots en effectuant un tour complet. Voila comme dans la description, commencez par travailler la balade avant puis la balade arrière. Rien de vraiment difficile, il suffit de repeter les mouvements.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/5ZMv-FWJ77c" },
+                { nom: "Italien", description: "Cette figure consiste à réaliser une italienne en boucle sur deux plots. le premier plot est passé en croisé arrière en diagonale, entre le premier et second plot vous pivotez en mouvement de « chapo » ensuite vous recommencez le croisé arrière sur le second plot mais dans l’autre sens. Pas de réelle difficulté pour cette figure. Dans le mouvement avec l’habitude vous sentirez un pied de pivot qui à le poids du corps la plupart du temps, c’est en restant bien sur celui-ci que vous pourrez effectuer la figure très vite..", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/MCCcC198N1Y" },
+                { nom: "Volte", description: "Cette figure consiste à croiser les pieds en marche avant vers une diagonale, croiser les pieds en reculant le pied de devant pour le placer en arrière afin de croiser le second plot en marche arrière tout en effectuant une rotation de 360° et ainsi recroiser sur le 3e plot en marche avant. Il est important de bien flechir les jambes. Je vous conseille de savoir faire le crazy pour ne pas avoir de probleme à la realisation du mouvement du premier plot. Ensuite entrainez vous à faire un retournement entre le premier et le second plot. Enfin comme sur la video, n’oubliez pas d’effectuer des rotations de pieds sur les pointes (successivement droite / gauche).", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/c7zSBwhbFQ0" },
+                { nom: "1 Pied Arrière", description: "Figure qui consiste à passer successivement à droite et à gauche des plots sur un seul pied en marche arrière. Commencez par bien maitriser le croisé arrière, puis le nelson arrière et le pied arrière viendra sans trop de probleme. Conservez bien le haut du corps orienté vers le pied levé.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/08mQPynZ7Qc" },
+                { nom: "Anticrazy", description: "Cette figure consiste à croiser les pieds autour du premier plot en marche avant (placé de coté par rapport à la ligne de plots) et à croiser les pieds en marche arrière autour du second plot pour revenir vers le premier. Dans cette figure le choix du pied qui franchit en premier le plot est primordial. Si vous utilisez le mauvais pied, vous risquez de faire un crazy. Donc pour ne pas vous trompez, si vous croisez avec le pied droit en premier, vous devez aller vers votre droite. Si vous croisé avec le pied gauche, vers votre gauche 🙂 Enfin il faut bien rester entre les deux plots au maximum pour conserver un bon équilibre.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/bVkyZbLY3FI" },
+                { nom: "Aigle", description: "Cette figure consiste à slalomer entre les plots avec le pied de devant en marche avant et le pied de derrière en marche arrière. La figure consiste à alterner le passage à droite et à gauche des plots dans cette position. Première figure de la famille des aigle à apprendre, vous pourrez ensuite vous attaquer aux aigles croisé et variantes. Dans un premier temps, travaillez la position en dehors des plots, sans essayer de slalomer mais juste tenir en ligne droite. Flechissez bien les jambes pour un meilleur équilibre et écartés bien vos bras. Une fois la position facile à tenir, placer 4 plots bien espacés (1,20m mini) et essayez de slalomer entre. Puis resserrez et ajoutez des plots. Notez bien ce nom d’aigle car la position dite « d’aigle » est souvent reprise pour decrire des figures plus complexe. Cette description d’aigle se rapproche aussi de la position de « chapi » que vous pourrez voir dans d’autres descriptions également.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/rFfi3msSpfI" },
+                { nom: "Double Croisé Arrière", description: "Figure qui consiste à croiser les pieds autour de chaque plot en marche arrière, en alternant le pied directeur à chaque passage de plot. Commencez par maîtriser le croisé arrière puis son switch ensuite essayez d’enchainer les deux avec le croisé arrière alterné puis le double croisé arrière. L’écart recommandé au début est de 1m60 puis 1m20 puis 80", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/8-2plRuvQpE" },
+                { nom: "Cafetière Avant", description: "Cette figure consiste à slalomer les plots, accroupi sur un pied avec la jambe libre tendue devant attrapée par la main. Pas toujours très facile. Commencez par travailler la position en dehors des plots, puis placez 4 plots bien écartés (120cm) et essayez de répeter le mouvement. Pensez à bien descendre jusqu’en bas et à garder le dos droit. Pour vous entraîner, essayer de réaliser la figure en ralentissant et en tenant sans tomber jusqu’à l’arrêt complet.", tags: ["settings"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/nStcNaEketE" },
+                { nom: "Aigle Croisé", description: "Figure qui consiste à franchir les plots avec le pied de devant en marche avant et le pied de derriere en marche arrière. Pour chacun des plots les pieds sont de part et d’autre du plot en alternance… Figure qui necessite de la souplesse des adducteurs. Il est conseillé de débuter par l’aigle puis par l’aigle croisé. Une bonne methode pour l’aigle croisé consiste à le travailler sur un espace de 50cm d’intervalle entre les plots. C’est plus difficile au début mais bien mieux pour apprendre vite.", tags: ["settings"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/BBMY5WaqG3Q" },
+                { nom: "Double Balade Arrière", description: "Figure qui consiste à croisé les deux pieds en marche arrière en diagonale autour du premier plot, puis les alignés dans la diagonale opposée entre les deux plots et recroiser le plot suivant comme le premier… Apprendre dans un premier temps le double croisé arrière, la balade arrière et enfin la double balade arrière…", tags: ["settings"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/BBMY5WaqG3Q" },
+
+            ]
+        },
+        {
+            niveau: 4,
+            couleur: "#9b59b6",
+            figures: [
+                { nom: "Soleil Inversé", description: "Figure qui consiste à réaliser un nelson inversé avant sur les deux premiers plots, puis un nelson inversé arrière opposé (switch) sur les deux plots suivants… Nous vous conseillons bien évidemment de travailler séparément dans un premier temps le nelson inversé avant puis le nelson inversé arrière, le mega inversé et enfin le nelson inversé arrière switch…", tags: ["jumps", "spins"], statut: 'a-apprendre',  videoUrl :"https://www.youtube.com/embed/3K1ioBbZWmA"},
+                { nom: "Méga Inversé", description: "Figure qui consiste à enchaîner un nelson inversé avant sur les deux premiers plots, puis un nelson inversé arrière sur les deux plots suivants. Nous vous conseillons logiquement de travailler dans un premier temps le nelson inversé avant, et le nelson inversé arrière séparément..", tags: ["sittings"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/TYYIFJ8EHz0"},
+                { nom: "Aigle Croisé Arrière", description: "Figure qui consiste à passer le premier plot en position d’aigle croisé dans un sens et le plot suivant dans la direction opposée avec le pied directeur opposé. Pensez à travailler dans un premier temps l’aigle avant, la balade avant, l’aigle croisé et les nelsons, puis les nelsons arrière, balade arrière et l’aigle arrière.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/azYq3BZfCFI" },
+                { nom: "Méga volte", description: "Cette figure consiste à réaliser un compas ouvert arrière sur 3 plots d’un seul coup. Le terme « méga » désigne le fait de prendre les 3 plots, au même titre que le terme « grande » designe le fait d’englober 2 plots. Enfin la « tera » volte consiste à englober 4 plots. Commencez par un mouvement de crazy pour lancer ensuite réaliser un début de volte mais éloignez bien les deux pieds et allongez la jambe qui fait le tour des 3 plots. Attention ce mouvement n’est pas vraiment une figure, pour que cette figure soit valable, il faudra reslalomer les deux plots du milieu évités.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/WgiKdGWjH6A" },
+                { nom: "Huit Arrière", description: "Cette figure consiste à slalomer entre deux plots en boucle. Un pied réaliser un huit au sol en marche arrière pendant que l’autre placé en retrait se déplace d’avant en arrière pour faciliter le mouvement du premier. C’est la figure des huit la plus facile à réaliser et il faut très peu de temps pour la réussir. Il y a dans cette figure un mouvement de volte, aussi en la travaillant cela pourra vous aider.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/mXBphzf5Lzk" },
+                { nom: "Double Huit Arrière", description: "Cette figure consiste à faire un arc de cercle avec le pied droit en marche arrière autour du plot gauche puis un arc de cercle avec le pied gauche en marche arrière autour du plot droit. Le corps reste face aux deux plots et les deux mouvements s’executent en alternance. Après avoir appris la volte et avoir travaillé le huit arrière, vous pouvez vous amuser au double huit arrière… Restez bien entre les deux plots.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/KNjqcMtbdlg" },
+                { nom: "Pendule Avant", description: "Cette figure consiste à réaliser un nelson inversé avant sur deux plots puis un nelson inversé avant switch (ou opposé) sur les deux plots suivants. Apprenez d’abord le nelson inversé avant et son switch et ensuite combinez les deux.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/s1feGdkVuno" },
+                { nom: "Pendule Arrière", description: "Cette figure consiste à réaliser un nelson inversé arrière sur deux plots puis un nelson inversé arrière switch (ou opposé) sur les deux plots suivants. Apprennez d’abord le nelson inversé arrière et son switch et ensuite combinez les deux.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/Bj_jcgQV3Ro" },
+                { nom: "Nelson Inversé Arrière", description: "Cette figure consiste à slalomer le premier plot les jambes écartés en marche arrière, puis à passer le second plot les jambes en position d’aigle inversé croisé (le pied de devant en marche arrière et celui de derrière en marche avant). Le poids du corps est principalement sur la jambe qui reste en marche arrière.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/-RJezGJwBwc" },
+                { nom: "Nelson Inversé Avant", description: "Cette figure consiste à croiser les jambes autour du premier plot et à passer le second plot en position d’aigle inversé croisé (le pied de devant en marche arrière, le pied de derrière en marche avant). Le pied du corps reste principalement sur la jambe de derrière. La jambe de devant alterne la position marche avant marche arrière. Pensez à mettre le haut du corps un peu de profil pour faciliter le retournement du pied de devant.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/JxRuRwdfD4E" },
+                { nom: "Balai Arrière", description: "Cette figure consiste à croiser les pieds en marche arrière en regardant du mauvais côté sur un plot, puis à franchir le second plot en position d’aigle croisé. Il faut alterner ces deux phases durant tout le slalom. C’est une figure assez déséquilibrant qui est dans la série des nelsons. Un conseil donc, commencez par travailler le nelson arrière, puis le nelson avant et ensuite le balai avant et le balai arrière. Comme pour tous les nelsons et balai, la majorité du poids du corps est sur le pied qui reste en marche arrière (ou en marche avant selon la figure). Ici pour bien réussir la figure, la position des épaules est très importante afin de ne pas pivoter et se retourner. Pensez également à bien ouvrir le bassin sur le second plot, question esthétique.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/wnX8HCCcIfM" },
+                { nom: "Z", description: "Cette figure consiste à slalomer entre les plots les pieds collés en passant à droite puis à gauche avec un pied en marche avant et l’autre en marche arrière La figure de base est l’aigle, vous rapprochez les pieds et vous les gardez collés. Pensez à bien flechir les jambes si vous n’êtes pas très souples. Essayez au maximum de garder les pieds bien côte à côte pour conserver un style propre.", tags: ["spins"], statut: 'a-apprendre' },
+                { nom: "X", description: "Cette figure consiste à franchir le premier plot en position d’aigle croisé et le secong plot en position d’aigle croisé inversé. En conservant le corps de profil par rapport à la rangée de plot et en déplaçant continuellement les pieds de façon symétrique on parvient rapidement à maîtriser cette figure. Dans l’ordre d’apprentissage des figures, il est conseillé de commencer par savoir faire le nelson avant et le nelson arrière séparément afin de maîtriser le transfert du poids de corps d’un pied sur l’autre. Ensuite sur deux plots, vous pouvez commencer à travailler le x progressivement sachant que la position « d’inversé » est la plus difficile pour la plupart des patineurs.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/l9c58nPunU8" },
+                { nom: "Spécial", description: "Cette figure consiste à passer le premier plot de profil sur les pointes (le pied de devant en marche avant celui de derrière en marche arrière) et le second plot en alternant la position des pieds par rapport aux plots avec le pied de devant en marche arrière et le pied de derrière en marche avant. C’est une figure dérivée du x. Il est donc indispensable d’apprendre d’abord le X de préférence sur un écart de plot assez serré puis d’essayer de faire le x sur les roues avant, en conservant les mouvements de fermés et d’ouverts. En effet il est possible de réaliser le special en bougeant uniquement les hanches. Servez-vous de vos bras pour vous équilibrer au début. Le travail en parallèle de la parenthèse est bien complémentaire.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/wqQuvdzgOFM" },
+
+
+
+            ]
+        },
+        {
+            niveau: 5,
+            couleur: "#f39c12",
+            figures: [
+                { nom: "Soleil Balai", description: "Figure qui consiste à enchainer un balai avant avec un balai arrière switch. Travaillez dans un premier temps le balai avant, puis le balai arrière switch", tags: ["wheelings"], statut: 'a-apprendre' , videoUrl :"https://https://www.youtube.com/embed/sqZIIFKYy_U" },
+                { nom: "Balai Avant Alterné", description: "Figure qui consiste à réaliser un balai avant sur les deux premiers plots puis le mouvement en switch (opposé) sur les deux plots suivants.. Débutez par l’apprentissage du balai avant puis de son switch", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/byd9FoWNP5k" },
+                { nom: "Mega Balai", description: "Figure qui consiste à réaliser un balai avant sur les deux premiers plots et un balai arrière sur les deux plots suivants… Il est judicieux d’apprendre dans un premier temps le balai avant, puis le balai arrière avant de combiner les deux..", tags: ["others"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/sP1m3yeg49g" },
+                { nom: "Tartine Avant", description: "Figure qui consiste à realiser un compas croisé avant sur le premier plot et un compas fermé avant sur le plot suivant… Je conseille de débuter par l’apprentissage du balai avant et du nelson avant inversé… la combinaison de ces deux figures permet la réalisation de la tartine avant", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/NFxwWouMhL4" },
+                { nom: "Asticot", description: "Figure qui consiste à alterner un mouvement de compas ouvert arrière (volte) sur un plot puis compas croisé avant (balai avant) sur le plot suivant… Commencez par travailler la volte, puis le balai avant et la combinaison des deux donne cette figure. Attention, il se peut qu’un des mouvement soit en switch (opposé) pour vous.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/FAd_iqs_4YA" },
+                { nom: "Grande Volte Complète", description: "Cette figure consiste à réaliser un grand compas ouvert arrière en boucle entre deux plots. Commencez par travailler la volte en avançant, puis la grande volte et enfin la grande volte complète. Sur cette figure, le mouvement de la pointe permet de relancer, si elle reste fixe vous pourrrez faire tout au plus un tour bien régulier mais vous aurez du mal à réaliser le mouvement en boucle. Pour lancer le mouvement vous pouvez réaliser un premier croisé de crazy comme dans la volte et grande volte.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/GhKpnGJqqE8" },
+                { nom: "Volte Croisée", description: "Figure qui consiste à enchainer un balai avant avec une volte (en arrière). Cette figure engendre un petit blocage après le balai avant, mais avec de l’entrainement, la fluidité fini par arriver. La sensation d’enchainement des deux mouvements de base qui la composent est très agréable.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/HeE_Z6GDdXY" },
+                { nom: "Balai Avant", description: "Cette figure consiste à croiser le premier plot en pivotant sur la roue avant du pied de devant puis à décroiser les pieds au second plot pour le franchir. Il faut alterner ces deux phases tout au long du slalom. Au même titre que le balai arrière, il faut commencer par apprendre le nelson avant, puis arrière pour comprendre la logique. Ensuite travailler le balai avant. Ici le poids placé sur la pointe avant est essentiel, il faut bien doser: si on appuie trop ca bloque, si on appuie pas assez le pied se lève. Cette figure demande pas mal de temps pour être bien maîtrisée mais elle servira ensuite pour tous les compas croisé, et les lancements de toupies croisées… Dernier conseil: le mouvement des hanches est également primordial.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/vfLpzKPcwD0" },
+                { nom: "Essuie-glace Avant", description: "Cette figure consiste à slalom sur un pied de profil par rapport aux plots. Le pied passe successivement à droite puis à gauche des plots. Le pied utilisé au sol est celui qui franchit le premier les plots, l’autre pied reste derrière en l’air. A regrouper avec l’essuie-glace arrière et l’essuie-glace un plot. Ici la différence est qu’il faut se pencher plus vers la fin de la rangée de plots pour être bien au dessus du pied au sol tout en restant droit et en oubliant pas d’utiliser la jambe libre et les bras pour équilibrer le corps en mouvement. La figure peut se réaliser sur un seul plot, il faudra dans ce cas rester le plus possible au dessus du plot.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/7GrQGLyW10U" },
+                { nom: "Parenthèse", description: "Figure qui consiste à slalomer sur deux plots en passant par dessus le plot droit avec la jambe droite et par dessus le plot gauche avec la jambe gauche. La figure consiste à alterner ces deux mouvements à l’infini. En décomposant la figure, on peut remarquer qu’il s’agit d’un aigle croisé vers la droite, puis d’un aigle croisé switch vers la gauche, puis avec la vitesse et le style, on réalise ces deux mouvement sur les roues avant. Important: essayez de garder le bassin fixe et de ne pas avancer ou reculer les hanches. Ce sont les genoux qui s’ouvrent et se ferment pour passer les plots. Pensez également à être bien au dessus des plots ce qui signifie que vous ne pourrez pas bien les voir et c un bon indicateur de réussite. Chaque pied monte sur la roue avant et redescend à plat tout cela en alternance.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/PJiBy5JBcsg" },
+                { nom: "After Eight Arrière", description: "Cette figure consiste à réaliser un huit au sol avec les deux pieds. Sur un plot vous réalisez un compas croisé arrière sur l’autre un compas ouvert arrière. Apprendre d’abord, le huit avant, puis huit arrière et travailler séparément les compas ouverts avant et compas croisé arrière. Bien bouger les hanches comme sur la vidéo pour changer les pieds de position entre les plots.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/NUUvfc5C0tQ" },
+                { nom: "Aigle Inversé Croisé", description: "Cette figure consiste à slalomer entre les plots avec le pied de devant en marche arrière et celui de derrière en marche avant. Les pieds passent de part et d’autre de chaque plot en alternance. Au même titre que l’aigle inversé, soit cette figure sera facile, soit elle sera extremement difficile. Si c’est le dernier cas, essayez l’aigle pour verifier si ce n’est pas plutot votre truc. Dans tous les cas, avec quelques assouplissements au niveau des hanches et un peu d’acharnement, cette figure peut être réalisable. Attention tout de même à ne pas trop forcer sur les genoux !!", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/sBQHYxMX-9g" },
+                { nom: "Huit Avant", description: "Cette figure consiste à slalomer entre les plots avec le pied de devant en marche arrière et celui de derrière en marche avant. Les pieds passent de part et d’autre de chaque plot en alternance. Au même titre que l’aigle inversé, soit cette figure sera facile, soit elle sera extremement difficile. Si c’est le dernier cas, essayez l’aigle pour verifier si ce n’est pas plutot votre truc. Dans tous les cas, avec quelques assouplissements au niveau des hanches et un peu d’acharnement, cette figure peut être réalisable. Attention tout de même à ne pas trop forcer sur les genoux !!", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/e5r5kIDITys" },
+                { nom: "Huit Balai Arrière", description: "Cette figure consiste à slalomer en boucle sur deux plots. Un pied réalise un huit au sol en marche arrière pendant que l’autre pied placé devant se déplace afin de faciliter les mouvements du premier. Dans un premier temps cette figure n’est pas très facile, il faudra bien la comprendre en terme de compas croisés arrière et compas fermé arrière si l’on veut y arriver rapidement. Le mouvement du bassin de droite à gauche, quitte à exagerer est essentiel.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/mnESj5lBpFI" },
+                { nom: "Total Croisé", description: "Cette figure consiste à réaliser un croisé avant sur le premier plot, puis un croisé arrière sur le second plot sans changer la position des pieds. Lorsque l’on exécute bien la figure, on est presque tout le temps en pivot en talons pointes. Conservez bien les jambes croisées.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/IQ2NW8hp5Ww" },
+                { nom: "Essuie-glace Arrière", description: "Figure qui consiste à slalomer sur un pied entre les plots en étant placé de coté. Sur un plot le pied va en marche avant, sur le suivant il va en marche arrière et ainsi de suite. Le pied au sol est celui qui est le plus en arrière par rapport à la direction de déplacement. Commencez par apprendre à faire le x qui est en quelque sorte la même figure mais sur deux pieds. Ensuite, placez plus de poids sur la jambe arrière jusqu’à lever la jambe de devant. Dans cette figure l’utilisation des bras et la position bien droite du buste sont essentiels. Il est plus facile de réaliser cette figure sur un espacement court entre les plots. L’évolution de cette figure aboutit à la réaliser sur une seule roue: avant ou arrière.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/B67eNYup5hI" },
+                { nom: "Toupie Impériale Arrière", description: "Cette figure consiste à tourner autour d’un plot sur les deux roues avant en effectuant au moins un tour complet. La toupie la plus simple des toupies sur les pointes de pied. Vous pouvez tenter ensuite de la réaliser en avançant ou bien sur une seule roue, ou encore en croisant les jambes…", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/Z63Nd0HUBps" },
+                { nom: "Huit Balai Avant", description: "Cette figure consiste à slalomer en boucle sur deux plots. Un pied réalise un huit au sol en marche avant pendant que l’autre pied placé devant se déplace afin de faciliter les mouvements du premier. Dans un premier temps cette figure n’est pas très facile, il faudra bien la comprendre en terme de compas croisés avant et compas fermé avant si l’on veut y arriver rapidement. Le mouvement du bassin de droite à gauche, quitte à exagerer est essentiel.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/mYor_HQIbKE" },
+                { nom: "Chicken Leg Avant 1 plot", description: "Cette figure consiste à tourner d’au moins 360° autour d’un plot avec un pied sur sa carre externe dos au plot en marche avant. Toute la technique de cette figure réside dans l’accompagnement de la jambe libre et son utilisation pour la rotation. Dans un premier temps, on lance la rotation et la jambe libre vers l’exterieur. Lorsque l’on est bien de profil et la jambe en position haute, on accélère la rotation en baissant la jambe et en la croisant devant soit tout en tournant les épaules et ainsi l’énergie cynétique permet de tourner sur le pied autour du plot.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/rMpn5pIGojg" },
+                { nom: "Chassé Croisé Arrière", description: "Cette figure consiste slalomer « en glissant » en marche arrière successivement à droite et gauche des plots avec les jambes croisées sur les carres externes. Cette figure est un mélange de slide (glissades dérapages) et slalom. Ici nous gardons toujours les jambes croisées (il est aussi possible d’alterner le croisement des jambes). Il faut bien placer les jambes sur les carres externes pour pouvoir pousser successivement d’un pied sur l’autre et ainsi avancer tout en changeant légèrement de direction (pour éviter de toucher les plots). L’apprentissage au début de cette figure est assez laborieux, mais lorsque l’on à bien compris et réussi le transfert de poids d’un pied sur l’autre, la figure devient plus fluide et coulée. Pensez à bien garder les épaules dos au slalom sous peine de sortir de l’alignement. Pensez également à ben garder les genoux collés.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/dw56QHrYx64" },
+                { nom: "Aigle Inversé", description: "Cette figure consiste à éviter les plots successivement par la droite et par la gauche. Le pied de devant est toujours en marche arrière et celui de derrière toujours en marche avant. Les deux pieds se suivent comme un serpent. Dans les aigles, il n’y a pas 1000 solutions, soit on arrive a faire les aigles soit on peut faire les aigles inversés. Selon les personnes, cette figure sera donc facile ou bien impossible. Il faut travailler la souplesse des hanches et un peu des chevilles mais ne pas chercher a tirer sur les genoux.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/0UYtyfZG8jw" },
+                { nom: "Cafetière Arrière", description: "Cette figure consiste à slalom sur un pied en marche arrière en étant accroupi sur la jambe. L’autre jambe doit être tendue et attrapée par la main. Soit vous regardez derrière vous par le côté de la jambe au sol, soit vous ne regardez pas 🙂. Comme toutes les figures où la position du corps est spéciale et importante, il est préférable de la travailler en dehors des plots dans un premier temps. La figure peut également se faire sans tenir la jambe libre, c’est un peu plus difficile", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/z600jyYbL64" },
+                { nom: "Aigle Croisé Impérial", description: "L’aigle impérial est une figure qui consiste à slalomer en position d’aigle (le pied de devant en marche avant et le pied de derrière en marche arrière) en ayant un pied de chaque côté des plots sur les roues avant uniquement. Nous vous conseillons de travailler votre souplesse dans un premier temps. Aborder d’abord l’aigle et l’aigle croisé simple, puis l’aigle impérial croisé et l’aigle royal…", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/hjBXpw9rO8E" },
+            ]
+            
+
+        },
+
+        {
+            niveau: 6,
+            couleur: "#16a085",
+            figures: [
+                { nom: "Grand Compas Croisé Avant Serpent", description: "Cette figure consiste à réaliser une rotation en contournant deux plots avec les jambes croisées un pied sur la roue avant l’autre à plat. Les deux pieds se suivent. Reportez-vous au grand compas croisé avant dans un premier temps pour avoir les bases nécessaires à l’apprentissage de cette figure. Ici vous devez bien voir que les deux jambes doivent être parallèles lorsqu’elles tournent autour des plots. C’est la règle essentielle des compas snake. Le lancement de la figure est le même qu’un compas croisé, puis vous agissez sur la jambe qui est sur la roue avant en la faisant pivoter de façon à avoir les deux patins le plus parallèle possible, ainsi vous pourrez contourner les plots. Si l’on analyse le mouvement, on se rend compte que l’on essaye de transformer une compas en une sorte de toupie croisée « non symétrique ». L’idéal une fois le mouvement réussi est de réaliser un tour complet autour des deux plots pour faire un grand compas croisé snake complet.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/dPFWQjr6-jw" }, 
+
+                { nom: "Méga Compas Croisé Avant", description: "Cette figure consiste à réaliser en « escargot » (en contournant en spirale 3, puis 2 puis 1 plot) un compas croisé arrière. Commencez par travailler le compas croisé arrière puis le grand compas croisé arrière, puis le compas croisé serpent arrière. Ici vous devez bien voir que les deux jambes doivent être parallèles lorsqu’elles tournent autour du plots. C’est la règle essentielle des compas serpent. Le lancement de la figure est le même qu’un compas croisé arrière, puis vous agissez sur la jambe qui est sur la roue avant en la faisant pivoter de façon à avoir les deux patins le plus parallèle possible, ainsi vous pourrez contourner les plots. La première difficulté est de placer directement les pieds dans le bon axe sans avoir peur de tomber. En effet, cette figure vous déséquilibre vers l’avant.", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/7kWbKix9OUE" },
+
+                { nom: "Chrystie Avant", description: "Cette figure consiste à slalomer de part et d’autres des plots sur un pied en marche avant, accroupi avec la jambe qui ne touche pas le sol, croisée et tendue devant, tenue par la main. Après s’être habitué aux figures accroupies avec la cafetière, vous pouvez commencer à travailler la chrystie en dehors des plots pour bien comprendre la position, puis dans une rangée de plots bien espacés. Il faut trouver le bon moment pour plier la jambe au sol et tendre l’autre devant. Si on plie la première jambe et qu’on tend l’autre ensuite on est déséquilibré vers l’arrière. Si on tend la jambe libre d’abord, alors on ne peut plus plier celle au sol. Il faut bien faire les deux mouvements en même temps 🙂", tags: ["spins"], statut: 'a-apprendre', videoUrl :"https://www.youtube.com/embed/IQqgzFcg9ZU" },
+
+                { nom: "Compas Croisé Avant Royal en avançant", description: "Figure qui consiste à réaliser un compas croisé avant royal en se déplaçant dans cette position le long des plots. Ici on début en apprenant le balai avant, puis on réalise le compas croisé avant, ensuite on essaye de réaliser le compas croisé avant royal et enfin on essaye de le faire en avançant. En respectant toutes ces étapes vous aurez plus de chance de bien y arriver… Attention comme toutes ces figures en rotation sur les pointes, nous le dirons jamais assez mais la position des bras et des épaules est essentielle: bien droit bras bien écartés à l’horizontale.", tags: ["spins"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/E1zi0aqiG4o" },
+
+                { nom: "Compas Croisé Avant Serpent Royal", description: "Cette figure consiste à réaliser une rotation en contournant un plot avec les jambes croisées un pied sur la roue avant l’autre sur la roue arrière (ou avant). Les deux pieds se suivent. Reportez-vous au grand compas croisé avant dans un premier temps pour avoir les bases nécessaires à l’apprentissage de cette figure. Ici vous devez bien voir que les deux jambes doivent être parallèles lorsqu’elles tournent autour du plots. C’est la règle essentielle des compas serpent. Le lancement de la figure est le même qu’un compas croisé, puis vous agissez sur la jambe qui est sur la roue avant en la faisant pivoter de façon à avoir les deux patins le plus parallèle possible, ainsi vous pourrez contourner les plots. L’idéal une fois le mouvement réussi est de réaliser deux tours complets autour du plot pour que la figure soit plus belle et valable en compétition surtout.", 
+                tags: ["spins", "wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/y-ULCUqzrLo" },
+
+                { nom: "Grand Compas Croisé Avant Royal", description: "Cette figure consiste à réaliser une rotation entre deux plots avec les jambes croisées un pied sur la roue avant l’autre sur la roue arrière. Le pied sur la roue avant est au centre du cercle décris par l’autre jambe sur la roue arrière.  Pour réaliser cette figure, vous devez de préférence savoir faire le balai avant facilement car c’est la même position au moment du croisé. Il faut bien coller les deux jambes pour plus de stabilité dans la figure. Le fait d’écarter les bras à l’horizontal va vous donner un meilleur équilibre également.", tags: ["spins", "wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/UQmAUwPIlWo" },
+                { nom: "Kasakchoc Avant", description: "Cette figure consiste à alterner deux mouvements de cafetière avant et cafetière avant switch (opposée). Sur chaque plot vous changez le pied au sol. Le pied au sol franchi le plot situé du côté de sa carre externe. Il est judicieux de travailler dans l’ordre: cafetière avant et cafetière avant switch. Pensez à bien tendre les jambes devant et ne pas trop sauter.", tags: ["spins", "wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/VHaHQLuE_AA" },
+                { nom: "Toupie Décroisée Avant en avançant", description: "Cette figure consiste à slalomer entre les plots, toujours du même coté, sur les pointes de pieds les jambes « décroisées ». Lorsque vous passez le plot vous êtes toujours dos à lui. La jambe qui est devant, par rapport à la direction passe le plot en deuxième. Fléchissez bien les jambes et gardez les genoux ou tibias collés. L’ouverture des hanches est proche de celle d’un aigle.", tags: ["spins", "wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/FLWx267ZenY" },
+                { nom: "Grand Compas Croisé Avant", description: "Figure qui consiste à tourner autour de deux plots avec un jambe et à piquer sur la roue avant de l’autre jambe placée entre les deux plots. Les jambes sont croisées. Au début il y a toujours besoin d’une figure pour lancer ce mouvement, nous utilisons de préférence le mouvement de la grande volte qui laisse plus de temps pour croiser les jambes. Vous devez également en parallèle travailler le balai avant qui aidera à gagner en précision dans le lancement du croisé avec la jambe devant sur la pointe. Conservez bien les bras écartés et le buste droit comme toujours.", tags: ["spins", "wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/UZwM2tcMfqY" },
+                { nom: "Toupie Croisée en avançant", description: "Figure qui consiste à avancer en contournant les plots toujours du même côté, les jambes croisées sur les roues avant avec la jambe de derrière devant (par rapport au sens de déplacement). Le buste doit bien rester droit pour toutes les figures très déséquilibrantes. Pensez à bien coller vos tibias ou genoux (selon la tailles de cercles que vous voulez réaliser). Servez-vous de vos bras en les écartant pour garder l’équilibre. Enfin pensez à bien écarter vos genoux pour rejoindre la position dite « d’aigle » et permettre ainsi aux roues de mieux rouler.", tags: ["spins", "wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/RtLHxRJjFUo" },
+                { nom: "Fishleg Avant", description: "Figure qui consiste à slalomer sur un pied en passant successivement à droite puis à gauche des plots en effectuant un retournement de 180° à Chaque plot. L’extérieur du pied est toujours du côté du plot à franchir. Le lancement de cette figure est proche de celui du chichen leg (d’où peut-être le nom composé avec « leg »). Vous devez bien vous servir de la jambe libre qui sert de balancier et qui permet de faciliter les rotations et le maintien de l’équilibre tout en avançant au travers des plots. Comme toujours l’utilisation des bras pour stabiliser est importante. Pour cette figure, plus vous lèverez la jambe libre plus la figure sera déséquilibrant mais esthétique. A vous de commencer à vous entraîner la jambe très proche du sol puis de la lever petit à petit. Pensez à bien aller vers l’avant et pas trop vers le côté (comme en chicken leg) sinon vous ne franchirez pas les deux premiers plots. C’est à dire que vous devez rouler suffisamment longtemps en marche arrière au deuxième plot avant de lancer la jambe libre pour effectuer le retournement en avant. Faîtes comme si vous étiez figé en marche arrière pendant une demi-seconde. Ne pas confondre avec le foot spin (pas encore en vidéo sur le site) qui consiste à se retourner tous les deux plots et donc à passer deux plots avec l’intérieur du pied face au plot et les deux plots suivants avec l’extérieur du pied face aux plots. Nous ferons bientôt la vidéo du footspin pour comparer.", tags: ["spins", "wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/gezgxpaihh4" },
+
+
+            ]
+            
+        },
+
+        {
+            niveau: 7,
+            couleur: "#d35400",
+            figures: [
+                { nom: "Wheeling Avant", description: "Figure qui consiste à slalomer sur la roue avant ou arrière d’un seul patin en alternant le passage des plots à droite et à gauche. Commencez par essayer de tenir sur la roue arrière ou avant du patin en dehors des plots, ne serais-ce que quelques centimètres pour prendre confiance. Ensuite donnez vous des repères et essayez un ou deux mètres. Puis quatre, et cinq. Ensuite commencez à placer des plots à 80 cm d’intervalle (environ 6 plots) et essayez en boucle de les passer un par un. Cette figure améliore votre équilibre général, elle demande beaucoup de temps mais est réalisable par tout le monde !!! Le qualité du maintien latéral de votre patin est un facteur à ne pas négliger pour bien réussir cette figure. En effet un patin de fitness trop mou vous empêchera de progresser rapidement.. mais c'est toutefois faisable.", tags: ["others"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/-a95y3NXGdY" },
+                { nom: "Grande Toupie Décroisée en avançant", description: "Cette figure consiste à réaliser une toupie décroisée en avançant autour de deux plots en englobant le second à chaque fois, puis à répéter le mouvement en avançant. Travaillez dans un premier temps la toupie décroisée, puis la toupie décroisée en avançant, puis la grande toupie décroisée sur deux plots et enfin la grande toupie décroisée en avançant", tags: ["spins"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/IMmyr2OApjk" },
+                { nom: "Grande Toupie Crosiée en avançant", description: "Cette figure à réaliser une toupie croisée en avançant autour de deux plots en englobant le second à chaque fois, puis à répéter le mouvement en avançant. Travaillez dans un premier temps la toupie croisée, puis la toupie croisée en avançant, puis la grande toupie croisée sur deux plots et enfin la grande toupie croisée en avançant. ", tags: ["spins"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/v8TlHgCdE80" },
+                { nom: "Retournement Wheeling Avant-Arrière", description: "Ce mouvement qui n’est pas une figure en lui même consiste à se retourner entre deux plots sur la roue avant ou arrière de marche avant à marche arrière. Lancer le mouvement en wheeling avant, stabilisez bien le haut du corps avec les bras puis pivotez sur la pointe lorsque vous passez entre les deux plots. Il existe plusieurs façons de se retourner soit vers l’intérieur, soit vers l’extérieur. Dans tous les cas, la position de la jambe libre et des bras sont essentiels.", tags: ["spins"], statut: 'a-apprendre', videoUrl:"" },
+                { nom: "Mega Compas Croisé Avant Serpent Royal", description: "Cette figure consiste à réaliser une rotation en contournant trois plots avec les jambes croisées un pied sur la roue avant (jambe de devant) l’autre sur la roue arrière (jambe de derrière. Les deux pieds se suivent. Reportez-vous au grand compas croisé avant dans un premier temps pour avoir les bases nécessaires à l’apprentissage de cette figure. Puis essayez le grand compas croisé avant serpent pour préparer cette figure. Ici vous devez bien voir que les deux jambes doivent être parallèles lorsqu’elles tournent autour des plots. C’est la règle essentielle des compas serpent. Le lancement de la figure est le même qu’un compas croisé avant serpent à plat, puis vous agissez sur la jambe qui est sur la roue avant en la faisant pivoter de façon à avoir les deux patins le plus parallèle possible et vous levez les orteils de la jambe qui suit pour vous mettre en « royal », ainsi vous pourrez contourner les plots. Si l’on analyse le mouvement, on se rend compte que l’on essaye de transformer une compas en une sorte de toupie croisée « non symétrique ». Au lieu d’être dos au plots on est plutôt parallèles au plots. Sur la vidéo ci-dessus, en réalité les 3 plots ne sont pas réalisés en compas croisé serpent royal, mais il y a tout de même deux plots bien slalomés de cette manière. Nous aurions pu appeler cette figure « grand' » au lieu de méga (qui signifie 3 plots) mais au total nous avons tout de même 3 plots « évités ». Enfin sur la vidéo on pourrait également presque dire que c’est un début de compas croisé serpent « escargot » en marche avant car nous revenons sur le 2ème plot. L’idéal une fois le mouvement réussi est de réaliser un tour complet autour des deux plots pour faire un grand compas croisé serpent complet. Dernière chose, si l’on arrive à maintenir cette position de compas croisé en restant parallèle aux plots, on s’approche d’une nouvelle figure appelée « le cobra » (nouveauté skali 2008) que nous illustrerons en vidéo ultérieurement.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/7GJaF2C4uRQ" },
+                { nom: "Daynight", description: "Cette figure consiste à slalomer sur une roue en se retournant d’avant en arrière entre le premier et deuxième plot puis d’arrière en avant entre le deuxième et troisième plot. Il faut passer successivement à droite et à gauche des plots. Travailler logiquement d’abord les différents wheelings de base, puis les retournements isolés et enfin combinez les différents retournements.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/6X80IsFaMmE" },
+                { nom: "Chicken Leg Avant", description: "Cette figure consiste à tourner autour d’un plot sur la roue avant en carre externe. Commencez par travailler le chicken leg à plat et dans le même temps la toupie croisée (qui est la même figure mais sur une seule roue au lieu de deux). Servez-vous de vos bras pour bien stabiliser… ensuite vous pourrez travailler le chicken leg impérial en avançant.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/0DFOUcir5GA" },
+                { nom: "Kasakchoc Arrière", description: "Cette figure consiste à alterner deux mouvements de cafetière arrière et cafetière arrière switch (opposée). Sur chaque plot vous changez le pied au sol. Le pied au sol franchi le plot situé du côté de sa carre externe. Il est judicieux de travailler dans l’ordre: cafetière avant et cafetière avant switch puis kazakchoc avant. Puis cafetière arrière et cafetière arrière switch. Pensez à bien tendre les jambes devant et ne pas trop sauter.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/941WcTjG5lI" },
+                { nom: "Chrystie Arrière", description: "Cette figure consiste à slalomer sur un pied en marche arrière, les jambes croisée avec la jambe libre tendue. Travaillez bien d’abord la cafetière, et essayez la chrystie en dehors des plots. Puis dans les plots. Le fait de bien tenir la jambe vous aidera à garder votre équilibre et à contrôler la direction.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/52WjF9gnu2M" },
+                { nom: "Essuie-glace Avant Impérial", description: "Cette figure consiste à réaliser un essuie-glace avant (voir fiche) impérial mais sans sauter. Autre nom de la figure, le no-wiper. Essayez de bien maîtriser l’essuie-glace avant puis l’essuie-glace impérial sans sauter sur un seul plot pour s’habituer au fait de devoir bouger sur une roue rapidement d’avant en arrière. Ensuite combinez un déplacement latéral et un mouvement d’avant arrière avec le pied en ouverture et fermeture. C’est un travail long et fastidieux mais qui fini par payer. 🙂", tags: ["wheelings"], statut: 'a-apprendre', videoUrl:"https://www.youtube.com/embed/Pqfu1mV-I0o" },
+
+            ]
+            
+        },
+
+    {
+        niveau: 8,
+        couleur: "#d35400",
+        figures: [
+            { nom: "Chicken Leg Avant", description: "Cette figure consiste à slalomer en tournant entre les plots sur la roue avant en carre externe. Le pied décrit des cercles et passe toujours du même coté de chaque plot. Nous vous conseillons de commencer par travailler la toupie croisée sur deux roues dans un premier temps et sur un seul plot puis en avançant. Ensuite vous pourrez-commencer à travailler le chicken leg impérial sur 1 plot en essayant de faire deux tours au moins. Lorsque vous avez suffisamment de force dans la jambe et d'équilibre vous pouvez essayer d'avancer en chicken leg impérial (sans toutefois réaliser des cercles complets) entre les plots. Les règles essentielles pour réussir: 1. ne vous penchez pas trop en avant sinon vous aller reposer tout de suite la jambe libre et vous d'avancerez pas. 2. servez-vous bien des bras en les écartant bien et en les levant au niveau des yeux. 3. utilisez la jambe libre pour aller chercher le plot suivant vers l'avant: vous avez 3 éléments qui vous équilibrent et vous permettent d'aller vers l'avant: le bras droit, le bras gauche et la jambe libre, servez-vous des 3 !! Cette figure peut également être réalisée sur la roue arrière: chicken leg royal en avançant. Il ne faut pas confondre le seven impérial et le chicken leg impérial en avançant: la différence se trouve au niveau de la position de la jambe libre et la carre de la roue au sol.", tags: ["others"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/eT_AK68xKDA" },
+
+            { nom: "Wheeling Arrière Royal", description: "Cette figure consiste à slalom sur la roue avant ou arrière d'un patin en marche arrière. Sur la vidéo nous vous avons montré le wheeling arrière royal (roue arrière du patin). Vous pouvez réaliser cette figure de deux manières, soit en regardant à l'interieur, soit à l'exterieur. Commencez par maîtriser complètement le pied arrière et travaillez le wheeling arrière en dehors des plots… puis dans les plots.", tags: ["spins"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/jY5ws-6Mo_8" },
+
+            { nom: "Wheeling Arrière Impérial", description: "Cette figure consiste à slalom sur la roue avant d'un patin en marche arrière. Sur la vidéo nous vous avons montré le wheeling arrière imperial (roue avant du patin)Vous pouvez réaliser cette figure de deux manières, soit en regardant à l'intérieur, soit à l'extérieur. Commencez par maîtriser complètement le pied arrière et travaillez le wheeling arrière en dehors des plots… puis dans les plots.", tags: ["spins"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/UE1Csysw8NY" },
+
+            { nom: "Corvo", description: "Figure qui consiste à slalom sur une roue (à l'avant du patin) à droite puis à gauche des plots successivement, en position accroupie. La jambe au sol est pliée, l'autre jambe est tendue devant. Conseils: Débuter par vous placer en position de petite voiture (accroupi, un pied sur la pointe avant et l'autre à plat), puis en vous mettant bien assis avec la fesse sur le talon du pied en pointe, commencez par vous pencher en arrière. Ensuite tendez la jambe à plat devant vous sur la roue du talon tout en continuant à vous pencher en arrière. Une fois cette phase contrôlée, il ne vous restera plus qu'à lever le pied tendu devant et vous pencher encore une dernière fois le buste en arrière pour trouver le point d'équilibre qui se trouve au niveau du nombril. Pour slalom ensuite, vous conserverez une vitesse suffisante et vous équilibre avec les bras. Le fait de devoir voir les plots vous conduira à redresser le buste, ce qui est une erreur et vous fera surement échouer au début. Avec l'habitude, vous arriverez certainement à bien rester en arrière.", tags: ["spins"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/VoP5SFMDvJ8" },
+
+            { nom: "Seven Avant Impérial", description: "Cette figure consiste à slalomer en tournant entre les plots sur la roue avant en carre interne. Le pied décrit des demi-cercles et passe toujours du même coté de chaque plot. Nous vous conseillons de commencer par travailler la toupie sur deux roues dans un premier temps et sur un seul plot. Ensuite de travailler l'équilibre sur le wheeling avant impérial pour ce qui est du travail de force des mollets. Ensuite vous pouvez commencer à tenter le seven qui mettra certainement beaucoup de temps avant d'être maitrisé. Faites bien attention à franchir l'axe central pour que votre figure soit correctement réalisée, car dans beaucoup de cas, le seven est réalisé en dehors des plots. De façon plus simple, le seven impérial se lance directement de face, mais il y a plusieurs autres façons de l'amorcer. Cette figure peut également être réalisée sur la roue arrière: seven royal. Il ne faut pas confondre le seven impérial et le chicken leg impérial en avançant: la différence se trouve au niveau de la position de la jambe libre et la carre de la roue au sol.", tags: ["wheelings"], statut: 'a-apprendre', videoUrl: "https://www.youtube.com/embed/_CpiVcKUpLs" },
+        ]
+    }
+]; 
+
+
+
+    let svg, g, zoom, simulation;
+    let figureActuelle = null;
+    let favoris = [];
+
+    function sauvegarderDonnees() {
+        localStorage.setItem('donnees_slalom', JSON.stringify(donnees_slalom));
+        localStorage.setItem('favoris', JSON.stringify(favoris));
+    }
+
+    function chargerDonnees() {
+        const donneesSauvegardees = localStorage.getItem('donnees_slalom');
+        if (donneesSauvegardees) {
+            donnees_slalom = JSON.parse(donneesSauvegardees);
+        }
+        const favorisSauvegardes = localStorage.getItem('favoris');
+        if (favorisSauvegardes) {
+            favoris = JSON.parse(favorisSauvegardes);
+        }
+    }
+
+    function placementCirculaire(index, total, rayon) {
+        const angle = (index / total) * 2 * Math.PI;
+        const padding = 30;
+        return {
+            x: (rayon + padding) * Math.cos(angle),
+            y: (rayon + padding) * Math.sin(angle)
+        };
+    }
+
+    function creerVisualisation() {
+        chargerDonnees();
+        const container = document.getElementById('visualisation');
+        const largeur = container.clientWidth;
+        const hauteur = container.clientHeight;
+
+        d3.select("#visualisation").select("svg").remove();
+        svg = d3.select("#visualisation")
+            .append("svg")
+            .attr("width", largeur)
+            .attr("height", hauteur);
+
+        g = svg.append("g");
+
+        zoom = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .on("zoom", (event) => {
+                g.transition()
+                    .duration(50)
+                    .ease(d3.easeLinear)
+                    .attr("transform", event.transform);
+            });
+
+        svg.call(zoom);
+
+        const rayonBase = Math.min(largeur, hauteur) / 3  ;
+        const echelleRayon = d3.scaleLinear()
+            .domain([d3.min(donnees_slalom, d => d.figures.length), d3.max(donnees_slalom, d => d.figures.length)])
+            .range([rayonBase * 0.6, rayonBase]);
+
+        const padding = 100;
+
+        simulation = d3.forceSimulation(donnees_slalom)
+            .force("center", d3.forceCenter(largeur / 2, hauteur / 2))
+            .force("collision", d3.forceCollide().radius(d => echelleRayon(d.figures.length) * 6))
+            .force("charge", d3.forceManyBody().strength(-100))
+            .force("x", d3.forceX(largeur / 2).strength(0.2))
+            .force("y", d3.forceY(hauteur / 2).strength(0.2))
+            .force("boundary", () => {
+                for (let node of donnees_slalom) {
+                    node.x = Math.max(padding, Math.min(largeur - padding, node.x));
+                    node.y = Math.max(padding, Math.min(hauteur - padding, node.y));
+                }
+            });
+
+        simulation.alphaDecay(0.03);
+        simulation.velocityDecay(0.6);
+
+        const groupeNiveau = g.selectAll("g.niveau")
+            .data(donnees_slalom)
+            .enter().append("g")
+            .attr("class", "niveau");
+
+        groupeNiveau.append("circle")
+            .attr("r", d => echelleRayon(d.figures.length))
+            .attr("fill", d => d.couleur)
+            .attr("stroke", "#ffffff")
+            .attr("stroke-width", 2)
+            .on("click", function(event, d) {
+                d3.select(this.parentNode).transition().duration(300).style("opacity", 0).remove();
+                simulation.nodes(simulation.nodes().filter(node => node !== d));
+                simulation.alpha(1).restart();
+            });
+
+        groupeNiveau.append("text")
+            .attr("class", "texte-niveau")
+            .text(d => `Niveau ${d.niveau}`);
+
+        groupeNiveau.each(function(d) {
+            const sousGroupe = d3.select(this);
+            const rayon = echelleRayon(d.figures.length) + 60;
+
+            d.figures.forEach((figure, index) => {
+                const {x, y} = placementCirculaire(index, d.figures.length, rayon);
+                
+                const groupeFigure = sousGroupe.append("g")
+                    .attr("class", "groupe-figure")
+                    .attr("transform", `translate(${x},${y})`)
+                    .on("click", (event) => {
+                        event.stopPropagation();
+                        afficherPopup(figure);
+                    })
+                    .on("mouseover", function() {
+                        d3.select(this).select("rect")
+                            .transition()
+                            .duration(300)
+                            .attr("width", 100)
+                            .attr("height", 40)
+                            .attr("x", -50)
+                            .attr("y", -20);
+                        d3.select(this).select("text")
+                            .transition()
+                            .duration(300)
+                            .style("font-size", "14px");
+                    })
+                    .on("mouseout", function() {
+                        d3.select(this).select("rect")
+                            .transition()
+                            .duration(300)
+                            .attr("width", 90)
+                            .attr("height", 30)
+                            .attr("x", -45)
+                            .attr("y", -15);
+                        d3.select(this).select("text")
+                            .transition()
+                            .duration(300)
+                            .style("font-size", "12px");
+                    });
+
+                groupeFigure.append("rect")
+                    .attr("class", `fond-figure ${figure.statut}`)
+                    .attr("x", -45)
+                    .attr("y", -15)
+                    .attr("width", 90)
+                    .attr("height", 30)
+                    .attr("rx", 5)
+                    .attr("ry", 5);
+
+                groupeFigure.append("text")
+                    .attr("class", "texte-figure")
+                    .text(figure.nom.length > 12 ? figure.nom.slice(0, 9) + "..." : figure.nom);
+            });
+        });
+
+        simulation.on("tick", () => {
+            groupeNiveau.transition()
+                .duration(50)
+                .ease(d3.easeLinear)
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+        });
+
+        groupeNiveau.call(d3.drag()
+            .on("start", e => { if (!e.active) simulation.alphaTarget(0.3).restart(); e.subject.fx = e.subject.x; e.subject.fy = e.subject.y; })
+            .on("drag", e => { e.subject.fx = e.x; e.subject.fy = e.y; })
+            .on("end", e => { if (!e.active) simulation.alphaTarget(0); e.subject.fx = null; e.subject.fy = null; }));
+
+        groupeNiveau.on("mouseover", function() {
+            d3.select(this).transition()
+                .duration(300)
+                .attr("transform", d => `translate(${d.x},${d.y}) scale(1.1)`);
+        })
+        .on("mouseout", function() {
+            d3.select(this).transition()
+                .duration(300)
+                .attr("transform", d => `translate(${d.x},${d.y}) scale(1)`);
+        });
+
+        creerFiltres();
+        mettreAJourProgressions();
+        creerNavigationNiveaux();
+        mettreAJourFavoris();
+    }
+
+    function creerFiltres() {
+        const conteneurFiltres = d3.select("#filtres").html("");
+
+        conteneurFiltres.append("h3").text("Niveaux");
+        donnees_slalom.forEach(niveau => {
+            const label = conteneurFiltres.append("label")
+                .style("display", "block")
+                .style("margin-bottom", "5px");
+            label.append("input")
+                .attr("type", "checkbox")
+                .attr("checked", true)
+                .on("change", function() {
+                    const estCoche = d3.select(this).property("checked");
+                    g.selectAll("g.niveau").filter(d => d.niveau === niveau.niveau)
+                        .style("display", estCoche ? null : "none");
+                    simulation.alpha(1).restart();
+                });
+            label.append("span")
+                .text(` Niveau ${niveau.niveau}`)
+                .style("color", niveau.couleur);
+        });
+
+        conteneurFiltres.append("h3").text("Statut");
+        ["maitrisee", "en-cours", "a-apprendre"].forEach(statut => {
+            const label = conteneurFiltres.append("label")
+                .style("display", "block")
+                .style("margin-bottom", "5px");
+            label.append("input")
+                .attr("type", "checkbox")
+                .attr("checked", true)
+                .on("change", function() {
+                    const estCoche = d3.select(this).property("checked");
+                    g.selectAll(".groupe-figure")
+                        .style("display", function(d) {
+                            const figure = d3.select(this).datum();
+                            return estCoche || figure.statut !== statut ? null : "none";
+                        });
+                });
+            label.append("span").text(` ${statut.charAt(0).toUpperCase() + statut.slice(1)}`);
+        });
+
+        conteneurFiltres.append("h3").text("Tags");
+        const tousLesTags = [...new Set(donnees_slalom.flatMap(niveau => niveau.figures.flatMap(figure => figure.tags)))];
+        tousLesTags.forEach(tag => {
+            const label = conteneurFiltres.append("label")
+                .style("display", "block")
+                .style("margin-bottom", "5px");
+            label.append("input")
+                .attr("type", "checkbox")
+                .attr("checked", true)
+                .on("change", function() {
+                    const estCoche = d3.select(this).property("checked");
+                    g.selectAll(".groupe-figure")
+                        .style("display", function(d) {
+                            const figure = d3.select(this).datum();
+                            return estCoche || !figure.tags.includes(tag) ? null : "none";
+                        });
+                });
+            label.append("span").text(` ${tag}`);
+        });
+
+        conteneurFiltres.append("button")
+            .text("Réinitialiser les filtres")
+            .style("margin-top", "10px")
+            .on("click", function() {
+                conteneurFiltres.selectAll("input[type='checkbox']").property("checked", true);
+                g.selectAll("g.niveau, .groupe-figure").style("display", null);
+                simulation.alpha(1).restart();
+            });
+    }
+
+    function afficherPopup(figure) {
+        figureActuelle = figure;
+        const popup = document.getElementById('popup');
+        document.getElementById('popup-titre').textContent = figure.nom;
+        document.getElementById('popup-description').textContent = figure.description;
+        document.getElementById('popup-tags').textContent = "Tags: " + figure.tags.join(", ");
+        
+        const videoContainer = document.getElementById('video-container');
+        if (figure.videoUrl) {
+            videoContainer.innerHTML = `<iframe width="100%" height="315" src="${figure.videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
+            videoContainer.style.display = 'block';
+        } else {
+            videoContainer.style.display = 'none';
+        }
+        
+        const toggleFavorisBtn = document.getElementById('toggle-favoris');
+        toggleFavorisBtn.textContent = favoris.includes(figure.nom) ? "Retirer des favoris" : "Ajouter aux favoris";
+        
+        popup.style.display = 'block';
+    }
+
+    function fermerPopup() {
+        document.getElementById('popup').style.display = 'none';
+        figureActuelle = null;
+    }
+
+    function changerStatut(statut) {
+        if (figureActuelle) {
+            figureActuelle.statut = statut;
+            d3.selectAll(".groupe-figure")
+                .filter(d => d === figureActuelle)
+                .select(".fond-figure")
+                .transition()
+                .duration(300)
+                .attr("class", `fond-figure ${statut}`);
+            fermerPopup();
+            mettreAJourProgressions();
+            sauvegarderDonnees();
+        }
+    }
+
+    function mettreAJourProgressions() {
+        const containerDetails = document.getElementById('progression-details');
+        containerDetails.innerHTML = '';
+        
+        let totalFigures = 0;
+        let totalMaitrisees = 0;
+
+        donnees_slalom.forEach(niveau => {
+            const totalNiveau = niveau.figures.length;
+const maitriseesNiveau = niveau.figures.filter(f => f.statut === 'maitrisee').length;
+            totalFigures += totalNiveau;
+            totalMaitrisees += maitriseesNiveau;
+
+            const pourcentage = (maitriseesNiveau / totalNiveau) * 100;
+            const progressNiveau = document.createElement('div');
+            progressNiveau.className = 'progression-niveau';
+            progressNiveau.innerHTML = `
+                <span>Niveau ${niveau.niveau} :</span>
+                <div class="progress-bar">
+                    <div class="progress-bar-fill" style="width: ${pourcentage}%; background-color: ${niveau.couleur};"></div>
+                </div>
+                <span>${pourcentage.toFixed(1)}%</span>
+            `;
+            containerDetails.appendChild(progressNiveau);
+        });
+
+        const pourcentageGlobal = (totalMaitrisees / totalFigures) * 100;
+        document.getElementById('progression-globale-pourcentage').textContent = `${pourcentageGlobal.toFixed(1)}%`;
+        document.getElementById('progression-globale-barre').style.width = `${pourcentageGlobal}%`;
+    }
+
+    function rechercherFigure() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        let figuresTrouvees = [];
+
+        donnees_slalom.forEach(niveau => {
+            niveau.figures.forEach(figure => {
+                if (figure.nom.toLowerCase().includes(searchTerm)) {
+                    figuresTrouvees.push(figure);
+                }
+            });
+        });
+
+        if (figuresTrouvees.length > 0) {
+            afficherPopup(figuresTrouvees[0]);
+        } else {
+            alert("Aucune figure trouvée avec ce nom.");
+        }
+    }
+
+    function creerNavigationNiveaux() {
+        const select = document.getElementById('niveau-select');
+        select.innerHTML = '';
+        donnees_slalom.forEach(niveau => {
+            const option = document.createElement('option');
+            option.value = niveau.niveau;
+            option.textContent = `Niveau ${niveau.niveau}`;
+            select.appendChild(option);
+        });
+        select.addEventListener('change', (e) => {
+            const niveauSelectionne = parseInt(e.target.value);
+            const noeudNiveau = donnees_slalom.find(n => n.niveau === niveauSelectionne);
+            if (noeudNiveau) {
+                const transform = d3.zoomIdentity.translate(
+                    svg.attr("width") / 2 - noeudNiveau.x,
+                    svg.attr("height") / 2 - noeudNiveau.y
+                ).scale(1.5);
+                svg.transition().duration(750).call(zoom.transform, transform);
+            }
+        });
+    }
+
+    function toggleFavoris() {
+        if (figureActuelle) {
+            const index = favoris.indexOf(figureActuelle.nom);
+            if (index > -1) {
+                favoris.splice(index, 1);
+            } else {
+                favoris.push(figureActuelle.nom);
+            }
+            sauvegarderDonnees();
+            mettreAJourFavoris();
+            const toggleFavorisBtn = document.getElementById('toggle-favoris');
+            toggleFavorisBtn.textContent = favoris.includes(figureActuelle.nom) ? "Retirer des favoris" : "Ajouter aux favoris";
+        }
+    }
+
+    function mettreAJourFavoris() {
+        const favorisContainer = document.getElementById('favoris-container');
+        const favorisList = document.getElementById('favoris-list');
+        favorisList.innerHTML = '';
+        favoris.forEach(nomFigure => {
+            const item = document.createElement('div');
+            item.className = 'favoris-item';
+            item.textContent = nomFigure;
+            item.addEventListener('click', () => {
+                const figure = trouverFigureParNom(nomFigure);
+                if (figure) {
+                    afficherPopup(figure);
+                }
+            });
+            favorisList.appendChild(item);
+        });
+        favorisContainer.style.display = favoris.length > 0 ? 'block' : 'none';
+    }
+
+    function trouverFigureParNom(nom) {
+        for (const niveau of donnees_slalom) {
+            for (const figure of niveau.figures) {
+                if (figure.nom === nom) {
+                    return figure;
+                }
+            }
+        }
+        return null;
+    }
+
+    function suggererFigures(terme) {
+        const suggestions = [];
+        donnees_slalom.forEach(niveau => {
+            niveau.figures.forEach(figure => {
+                if (figure.nom.toLowerCase().includes(terme.toLowerCase())) {
+                    suggestions.push(figure.nom);
+                }
+            });
+        });
+        return suggestions.slice(0, 5);
+    }
+
+    document.getElementById('filtres-burger').addEventListener('click', function() {
+        const filtres = document.getElementById('filtres');
+        filtres.style.display = filtres.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('progression-burger').addEventListener('click', function() {
+        const progression = document.getElementById('progression-container');
+        progression.style.display = progression.style.display === 'none' ? 'block' : 'none';
+    });
+
+    document.getElementById('search-button').addEventListener('click', rechercherFigure);
+
+    document.getElementById('search-input').addEventListener('input', function(e) {
+        const suggestions = suggererFigures(e.target.value);
+        const suggestionsContainer = document.getElementById('suggestions');
+        suggestionsContainer.innerHTML = '';
+        if (suggestions.length > 0) {
+            suggestions.forEach(suggestion => {
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+                item.textContent = suggestion;
+                item.addEventListener('click', () => {
+                    document.getElementById('search-input').value = suggestion;
+                    suggestionsContainer.style.display = 'none';
+                    rechercherFigure();
+                });
+                suggestionsContainer.appendChild(item);
+            });
+            suggestionsContainer.style.display = 'block';
+        } else {
+            suggestionsContainer.style.display = 'none';
+        }
+    });
+
+    document.getElementById('search-input').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            rechercherFigure();
+        }
+    });
+
+    document.getElementById('zoom-in').addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.5);
+    });
+
+    document.getElementById('zoom-out').addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 0.75);
+    });
+
+    document.getElementById('zoom-reset').addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+    });
+
+    document.getElementById('toggle-favoris').addEventListener('click', toggleFavoris);
+
+    window.addEventListener('resize', () => {
+        const container = document.getElementById('visualisation');
+        svg.attr("width", container.clientWidth)
+           .attr("height", container.clientHeight);
+        creerVisualisation();
+    });
+
+    window.addEventListener('load', () => {
+        creerVisualisation();
+    });
+    </script>
+</body>
+</html>
